@@ -501,6 +501,22 @@ class _EnvReloader(object):
 
         # Threading settings
 
+        def limit_to_omp_num_threads(num_threads):
+            _omp_num_threads = os.getenv('OMP_NUM_THREADS', None)
+            if _omp_num_threads is not None:
+                try:
+                    # OMP_NUM_THREADS can be a comma separated list; take first value
+                    return min(int(_omp_num_threads.split(',')[0]), num_threads)
+                except Exception:
+                    warnings.warn(f"Environment variable 'OMP_NUM_THREADS' is defined but "
+                                  f"its associated value '{_omp_num_threads}' could not be "
+                                  "parsed.\nThe parse failed with exception:\n"
+                                  f"{traceback.format_exc()}",
+                                  RuntimeWarning)
+                    return num_threads
+            else
+                return num_threads
+
         # The default number of threads to use.
         def num_threads_default():
             try:
@@ -508,11 +524,11 @@ class _EnvReloader(object):
             except AttributeError:
                 pass
             else:
-                return max(1, len(sched_getaffinity(0)))
+                return limit_to_omp_num_threads(max(1, len(sched_getaffinity(0))))
 
             cpu_count = os.cpu_count()
             if cpu_count is not None:
-                return max(1, cpu_count)
+                return limit_to_omp_num_threads(max(1, cpu_count))
 
             return 1
 
